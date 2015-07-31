@@ -24,8 +24,8 @@ namespace ZoneFileCreator
 {
     using System;
     using System.Collections.Generic;
-    using System.DirectoryServices.Protocols;
-    using System.Linq;
+
+    using Novell.Directory.Ldap;
 
     /// <summary>
     /// The string extensions.
@@ -55,20 +55,6 @@ namespace ZoneFileCreator
         }
 
         /// <summary>
-        /// The to string collection.
-        /// </summary>
-        /// <param name="data">
-        /// The data.
-        /// </param>
-        /// <returns>
-        /// The <see cref="IEnumerable{string}"/>.
-        /// </returns>
-        public static IEnumerable<string> ToStringCollection(this DirectoryAttribute data)
-        {
-            return data.GetValues(typeof(string)).Cast<string>();
-        }
-
-        /// <summary>
         /// The to serial number.
         /// </summary>
         /// <param name="lastModification">
@@ -85,6 +71,20 @@ namespace ZoneFileCreator
                 (lastModification.Hour * 4) + (lastModification.Minute / 15));
 
             return value;
+        }
+
+        public static IList<LdapEntry> ToList(this LdapSearchResults results)
+        {
+            List<LdapEntry> entries = new List<LdapEntry>();
+
+            // Argh Novell library, why you no implement IEnumerable!?!
+            while (results.hasMore())
+            {
+                LdapEntry entry = results.next();
+                entries.Add(entry);
+            }
+
+            return entries;
         }
 
         #endregion

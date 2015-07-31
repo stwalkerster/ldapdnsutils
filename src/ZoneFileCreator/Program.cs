@@ -49,7 +49,7 @@ namespace ZoneFileCreator
                 directoryInfo.Delete(true);
             }
 
-            var ldapConnector = new LdapConnector(args[0], new NetworkCredential(args[1], args[2]), args[3]);
+            var ldapConnector = new LdapConnectorNovell(args[0], new NetworkCredential(args[1], args[2]), args[3]);
 
             var zones = ldapConnector.GetDnsData();
 

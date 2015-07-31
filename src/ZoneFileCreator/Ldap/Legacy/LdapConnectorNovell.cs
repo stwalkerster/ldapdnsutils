@@ -1,5 +1,5 @@
 ﻿// --------------------------------------------------------------------------------------------------------------------
-// <copyright file="LdapConnector.cs" company="Simon Walker">
+// <copyright file="LdapConnectorNovell.cs" company="Simon Walker">
 //   Copyright (C) 2014 Simon Walker
 //   
 //   Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated 
@@ -25,15 +25,18 @@ namespace ZoneFileCreator.Ldap.Legacy
     using System;
     using System.Collections;
     using System.Collections.Generic;
-    using System.DirectoryServices.Protocols;
+    using System.Diagnostics;
     using System.Globalization;
     using System.Linq;
+    using System.Linq.Expressions;
     using System.Net;
+
+    using Novell.Directory.Ldap;
 
     /// <summary>
     /// The LDAP connector.
     /// </summary>
-    public class LdapConnector
+    public class LdapConnectorNovell : ILdapConnector
     {
         #region Fields
 
@@ -52,7 +55,7 @@ namespace ZoneFileCreator.Ldap.Legacy
         #region Constructors and Destructors
 
         /// <summary>
-        /// Initialises a new instance of the <see cref="LdapConnector"/> class.
+        /// Initialises a new instance of the <see cref="LdapConnectorNovell"/> class.
         /// </summary>
         /// <param name="hostname">
         /// The hostname.
@@ -63,11 +66,12 @@ namespace ZoneFileCreator.Ldap.Legacy
         /// <param name="dnsRootDn">
         /// The DNS root DN.
         /// </param>
-        public LdapConnector(string hostname, NetworkCredential networkCredential, string dnsRootDn)
+        public LdapConnectorNovell(string hostname, NetworkCredential networkCredential, string dnsRootDn)
         {
-            var ldapDirectoryIdentifier = new LdapDirectoryIdentifier(hostname);
-            this.ldapConnection = new LdapConnection(ldapDirectoryIdentifier, networkCredential, AuthType.Basic);
-            this.ldapConnection.SessionOptions.ProtocolVersion = 3;
+            this.ldapConnection = new LdapConnection();
+            this.ldapConnection.Connect(hostname, 389);
+            this.ldapConnection.Bind(networkCredential.UserName, networkCredential.Password);
+
             this.dnsRootDn = dnsRootDn;
         }
 
@@ -83,27 +87,27 @@ namespace ZoneFileCreator.Ldap.Legacy
         /// </returns>
         public IEnumerable<Zone> GetDnsData()
         {
-            var sr = new SearchRequest(
+            var ldapSearchResults = this.ldapConnection.Search(
                 this.dnsRootDn,
-                "(&(objectClass=dnsdomain2)(soarecord=*))", 
-                SearchScope.Subtree, 
-                "associateddomain");
-            var directoryResponse = (SearchResponse)this.ldapConnection.SendRequest(sr);
-
-            var zones = directoryResponse.Entries.Cast<SearchResultEntry>().Select(
+                LdapConnection.SCOPE_SUB,
+                "(&(objectClass=dnsdomain2)(soarecord=*))",
+                new[] { "associateddomain" },
+                false);
+            
+            var zones = ldapSearchResults.ToList().Select(
                 d =>
                     {
-                        var zoneOrigin = (string)d.Attributes["associateddomain"][0];
+                        var zoneOrigin = d.getAttribute("associateddomain").StringValue;
 
                         var resourceRecords = new List<ResourceRecord>();
-                        var zone = new Zone(zoneOrigin, d.DistinguishedName, resourceRecords);
+                        var zone = new Zone(zoneOrigin, d.DN, resourceRecords);
 
-                        var domainDnsData = this.GetDomainDnsData(zone, d.DistinguishedName, string.Empty);
+                        var domainDnsData = this.GetDomainDnsData(zone, d.DN, string.Empty);
                         resourceRecords.AddRange(domainDnsData);
 
                         return zone;
                     }).ToList();
-            
+
             return zones;
         }
 
@@ -126,17 +130,19 @@ namespace ZoneFileCreator.Ldap.Legacy
         {
             var attributes = RecordType.SupportedRecordTypes().Union(new[] { "dc", "modifyTimestamp" }).ToArray();
 
-            var sr = new SearchRequest(domainDN, "(objectClass=dnsdomain2)", SearchScope.Base, attributes);
-            var directoryResponse = (SearchResponse)this.ldapConnection.SendRequest(sr);
-
+            var ldapSearchResults = this.ldapConnection.Search(
+                domainDN,
+                LdapConnection.SCOPE_BASE,
+                "(objectClass=dnsdomain2)",
+                attributes,
+                false).ToList();
+            
             var records = new List<ResourceRecord>();
 
-            foreach (var entry in directoryResponse.Entries.Cast<SearchResultEntry>())
+            foreach (var entry in ldapSearchResults)
             {
-                foreach (var attr in entry.Attributes)
+                foreach (LdapAttribute attribute in entry.getAttributeSet().Cast<LdapAttribute>())
                 {
-                    var attribute = ((DictionaryEntry)attr).Value as DirectoryAttribute;
-
                     if (attribute == null)
                     {
                         continue;
@@ -150,8 +156,7 @@ namespace ZoneFileCreator.Ldap.Legacy
                     // last modification timestamp for SOA
                     if (attribute.Name == "modifyTimestamp")
                     {
-                        var timestamp = attribute.GetValues(typeof(string)).Cast<string>().FirstOrDefault();
-                        var dateTime = DateTime.ParseExact(timestamp, "yyyyMMddHHmmssZ", CultureInfo.InvariantCulture);
+                        var dateTime = DateTime.ParseExact(attribute.StringValue, "yyyyMMddHHmmssZ", CultureInfo.InvariantCulture);
 
                         if (DateTime.Compare(dateTime, domainBase.LastModification) > 0)
                         {
@@ -162,29 +167,32 @@ namespace ZoneFileCreator.Ldap.Legacy
                     }
 
                     records.AddRange(
-                        attribute.ToStringCollection()
-                            .ToList()
+                        attribute.StringValueArray
                             .Select(
                                 x =>
                                 new ResourceRecord
-                                    {
-                                        ZonePath = path, 
-                                        RecordType = RecordType.FromLdap(attribute.Name), 
-                                        Zone = domainBase, 
-                                        RecordValue = x
-                                    }));
+                                {
+                                    ZonePath = path,
+                                    RecordType = RecordType.FromLdap(attribute.Name),
+                                    Zone = domainBase,
+                                    RecordValue = x
+                                }));
                 }
             }
 
-            var srsub = new SearchRequest(domainDN, "(objectClass=dnsdomain2)", SearchScope.OneLevel, "dc");
-            var srsubresult = (SearchResponse)this.ldapConnection.SendRequest(srsub);
-
-            foreach (var entry in srsubresult.Entries.Cast<SearchResultEntry>())
+            var ldapSubSearchResults = this.ldapConnection.Search(
+                domainDN,
+                LdapConnection.SCOPE_ONE,
+                "(objectClass=dnsdomain2)",
+                new[] { "dc" },
+                false).ToList();
+            
+            foreach (var entry in ldapSubSearchResults)
             {
-                var dc = (string)entry.Attributes["dc"][0];
+                var dc = entry.getAttribute("dc").StringValue;
                 var actualPath = (dc + "." + path).TrimEnd('.');
 
-                records.AddRange(this.GetDomainDnsData(domainBase, entry.DistinguishedName, actualPath));
+                records.AddRange(this.GetDomainDnsData(domainBase, entry.DN, actualPath));
             }
 
             return records;
