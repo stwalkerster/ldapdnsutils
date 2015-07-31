@@ -61,7 +61,7 @@ namespace ZoneFileCreator
             var checkZonesStream = File.Create("output/checkzones.sh");
             var checkZonesWriter = new StreamWriter(checkZonesStream) { NewLine = "\n" };
 
-            checkZonesWriter.WriteLine("#!/bin/bash");
+            checkZonesWriter.WriteLine("#!/bin/bash -xe");
 
             foreach (var zone in zones)
             {
