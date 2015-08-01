@@ -90,7 +90,7 @@ namespace ZoneFileCreator.Ldap.Legacy
             var ldapSearchResults = this.ldapConnection.Search(
                 this.dnsRootDn,
                 LdapConnection.SCOPE_SUB,
-                "(&(objectClass=dnsdomain2)(soarecord=*))",
+                "(&(&(objectClass=dnsdomain2)(soarecord=*))(!(disabled=TRUE)))",
                 new[] { "associateddomain" },
                 false);
             
