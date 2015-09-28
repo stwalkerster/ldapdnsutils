@@ -66,10 +66,10 @@ namespace ZoneFileCreator.Ldap.Legacy
         /// <param name="dnsRootDn">
         /// The DNS root DN.
         /// </param>
-        public LdapConnectorNovell(string hostname, NetworkCredential networkCredential, string dnsRootDn)
+        public LdapConnectorNovell(string hostname, int port, NetworkCredential networkCredential, string dnsRootDn)
         {
             this.ldapConnection = new LdapConnection();
-            this.ldapConnection.Connect(hostname, 389);
+            this.ldapConnection.Connect(hostname, port);
             this.ldapConnection.Bind(networkCredential.UserName, networkCredential.Password);
 
             this.dnsRootDn = dnsRootDn;
@@ -98,6 +98,8 @@ namespace ZoneFileCreator.Ldap.Legacy
                 d =>
                     {
                         var zoneOrigin = d.getAttribute("associateddomain").StringValue;
+
+                        Console.WriteLine("    Found zone data for {0}", zoneOrigin);
 
                         var resourceRecords = new List<ResourceRecord>();
                         var zone = new Zone(zoneOrigin, d.DN, resourceRecords);
@@ -128,7 +130,7 @@ namespace ZoneFileCreator.Ldap.Legacy
         /// </returns>
         public List<ResourceRecord> GetDomainDnsData(Zone domainBase, string domainDN, string path)
         {
-            var attributes = RecordType.SupportedRecordTypes().Union(new[] { "dc", "modifyTimestamp" }).ToArray();
+            var attributes = RecordType.SupportedRecordTypes().Union(new[] { "dc", "modifyTimestamp", "dNSTTL" }).ToArray();
 
             var ldapSearchResults = this.ldapConnection.Search(
                 domainDN,
@@ -138,6 +140,8 @@ namespace ZoneFileCreator.Ldap.Legacy
                 false).ToList();
             
             var records = new List<ResourceRecord>();
+
+            string localTtl = null;
 
             foreach (var entry in ldapSearchResults)
             {
@@ -150,6 +154,12 @@ namespace ZoneFileCreator.Ldap.Legacy
 
                     if (attribute.Name == "dc")
                     {
+                        continue;
+                    }
+
+                    if (attribute.Name == "dNSTTL")
+                    {
+                        localTtl = attribute.StringValue;
                         continue;
                     }
 
@@ -177,6 +187,14 @@ namespace ZoneFileCreator.Ldap.Legacy
                                     Zone = domainBase,
                                     RecordValue = x
                                 }));
+                }
+            }
+            
+            if (localTtl != null )
+            {
+                foreach (var resourceRecord in records)
+                {
+                    resourceRecord.TimeToLive = localTtl;
                 }
             }
 

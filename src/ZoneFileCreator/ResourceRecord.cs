@@ -20,6 +20,7 @@
 //   The resource record.
 // </summary>
 // --------------------------------------------------------------------------------------------------------------------
+
 namespace ZoneFileCreator
 {
     /// <summary>
@@ -27,6 +28,11 @@ namespace ZoneFileCreator
     /// </summary>
     public class ResourceRecord
     {
+        public ResourceRecord()
+        {
+            this.TimeToLive = string.Empty;
+        }
+
         #region Public Properties
 
         public override string ToString()
@@ -58,6 +64,8 @@ namespace ZoneFileCreator
         /// Gets the zone path.
         /// </summary>
         public string ZonePath { get; set; }
+
+        public string TimeToLive { get; set; }
 
         #endregion
     }

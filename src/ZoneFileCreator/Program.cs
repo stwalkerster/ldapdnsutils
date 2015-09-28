@@ -23,6 +23,7 @@
 
 namespace ZoneFileCreator
 {
+    using System;
     using System.IO;
     using System.Net;
 
@@ -43,15 +44,29 @@ namespace ZoneFileCreator
         /// </param>
         private static void Main(string[] args)
         {
+            Console.WriteLine("Initialising...");
+
             var directoryInfo = new DirectoryInfo("output");
             if (directoryInfo.Exists)
             {
                 directoryInfo.Delete(true);
             }
 
-            var ldapConnector = new LdapConnectorNovell(args[0], new NetworkCredential(args[1], args[2]), args[3]);
+            int port = 389;
+            if (args.Length > 4)
+            {
+                port = int.Parse(args[4]);
+            }
+
+            Console.WriteLine("Connecting to server");
+
+            var ldapConnector = new LdapConnectorNovell(args[0], port, new NetworkCredential(args[1], args[2]), args[3]);
+
+            Console.WriteLine("Fetching DNS Data");
 
             var zones = ldapConnector.GetDnsData();
+
+            Console.WriteLine("Creating data files");
 
             directoryInfo.Create();
 
@@ -63,8 +78,10 @@ namespace ZoneFileCreator
 
             checkZonesWriter.WriteLine("#!/bin/bash -xe");
 
+            Console.WriteLine("Writing zone data");
             foreach (var zone in zones)
             {
+                Console.WriteLine("    zone: {0}", zone.ZoneOrigin);
                 var fileStream = File.Create(string.Format("output/db.{0}", zone.ZoneOrigin));
                 zone.CreateZoneFileData(fileStream);
                 fileStream.Close();
@@ -79,6 +96,8 @@ namespace ZoneFileCreator
 
             checkZonesWriter.Flush();
             checkZonesStream.Close();
+
+            Console.WriteLine("Done");
         }
 
         #endregion

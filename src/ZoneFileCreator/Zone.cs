@@ -116,10 +116,12 @@ namespace ZoneFileCreator
             // set up the data we need first
             var pathLength = 8;
             var recordTypeLength = 6;
+            var ttlLength = 0;
             foreach (var record in this.ResourceRecords)
             {
                 pathLength = Math.Max(pathLength, record.ZonePath.Length);
                 recordTypeLength = Math.Max(recordTypeLength, record.RecordType.DnsRecordType.Length);
+                ttlLength = Math.Max(ttlLength, record.TimeToLive.Length);
             }
 
             // create zone file
@@ -141,7 +143,7 @@ namespace ZoneFileCreator
                 var path = soaRecord.ZonePath == string.Empty ? "@" : soaRecord.ZonePath;
 
                 sw.WriteLine(
-                    "{0} IN   {1} {2} {3} {4} {5} {6} {7} {8}", 
+                    "{0} {9} IN   {1} {2} {3} {4} {5} {6} {7} {8}", 
                     path.PadRight(pathLength), 
                     soaRecord.RecordType.DnsRecordType.PadRight(recordTypeLength), 
                     soaRecord.PrimaryNameserver, 
@@ -150,7 +152,8 @@ namespace ZoneFileCreator
                     soaRecord.Refresh, 
                     soaRecord.Retry, 
                     soaRecord.Expiry, 
-                    this.DefaultTimeToLive);
+                    this.DefaultTimeToLive, 
+                    soaRecord.TimeToLive.PadRight(ttlLength));
             }
 
             sw.WriteLine(";");
@@ -176,10 +179,11 @@ namespace ZoneFileCreator
                 }
 
                 sw.WriteLine(
-                    "{0} IN   {1} {2}", 
+                    "{0} {3} IN   {1} {2}", 
                     path.PadRight(pathLength), 
                     record.RecordType.DnsRecordType.PadRight(recordTypeLength), 
-                    recordValue);
+                    recordValue,
+                    record.TimeToLive.PadRight(ttlLength));
             }
 
             sw.Flush();
