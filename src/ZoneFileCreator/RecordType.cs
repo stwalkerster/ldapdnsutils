@@ -32,64 +32,19 @@ namespace ZoneFileCreator
     {
         #region Static Fields
 
-        /// <summary>
-        /// The a.
-        /// </summary>
         public static RecordType A = new RecordType("A", "arecord");
-
-        /// <summary>
-        /// The aaaa.
-        /// </summary>
         public static RecordType AAAA = new RecordType("AAAA", "aaaarecord");
-
-        /// <summary>
-        /// The cname.
-        /// </summary>
+        public static RecordType CAA = new RecordType("CAA", "caarecord");
         public static RecordType CNAME = new RecordType("CNAME", "cnamerecord");
-
-        /// <summary>
-        /// The mx.
-        /// </summary>
         public static RecordType MX = new RecordType("MX", "mxrecord");
-
-        /// <summary>
-        /// The ns.
-        /// </summary>
         public static RecordType NS = new RecordType("NS", "nsrecord");
-
-        /// <summary>
-        /// The soa.
-        /// </summary>
         public static RecordType SOA = new RecordType("SOA", "soarecord");
-
-        /// <summary>
-        /// The srv.
-        /// </summary>
         public static RecordType SRV = new RecordType("SRV", "srvrecord");
-
-        /// <summary>
-        /// The spf.
-        /// </summary>
         public static RecordType SPF = new RecordType("SPF", "spfrecord");
-
-        /// <summary>
-        /// The sshfp.
-        /// </summary>
         public static RecordType SSHFP = new RecordType("SSHFP", "sshfprecord");
-
-        /// <summary>
-        /// The txt.
-        /// </summary>
         public static RecordType TXT = new RecordType("TXT", "txtrecord");
-
-        /// <summary>
-        /// The dns lookup.
-        /// </summary>
+        
         private static Dictionary<string, RecordType> DnsLookup = new Dictionary<string, RecordType>();
-
-        /// <summary>
-        /// The ldap to dns.
-        /// </summary>
         private static Dictionary<string, RecordType> LdapLookup = new Dictionary<string, RecordType>();
 
         #endregion
@@ -103,6 +58,7 @@ namespace ZoneFileCreator
         {
             Add(A);
             Add(AAAA);
+            Add(CAA);
             Add(CNAME);
             Add(MX);
             Add(NS);
