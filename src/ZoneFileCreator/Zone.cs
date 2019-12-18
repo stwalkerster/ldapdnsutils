@@ -161,7 +161,8 @@ namespace ZoneFileCreator
 
             var remainingRecords =
                 this.ResourceRecords.Where(x => x.RecordType != RecordType.SOA)
-                    .OrderBy(x => string.Join(".", x.ZonePath.Split('.').Reverse()));
+                    .OrderBy(x => string.Join(".", x.ZonePath.Split('.').Reverse()))
+                    .ThenBy(x => x.RecordType.DnsRecordType);
 
             foreach (var record in remainingRecords)
             {
