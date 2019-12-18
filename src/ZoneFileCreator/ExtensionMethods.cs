@@ -66,7 +66,7 @@ namespace ZoneFileCreator
         public static string ToSerialNumber(this DateTime lastModification)
         {
             var value = string.Format(
-                "{0}{1}",
+                "{0}{1,2:D2}",
                 lastModification.ToString("yyyyMMdd"),
                 (lastModification.Hour * 4) + (lastModification.Minute / 15));
 
